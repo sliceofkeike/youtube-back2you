@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aesthetic Vlog Widget</title>
+    <style>
+        :root { 
+            --gray-text: #BABABA; 
+            --done-pink: #EDDDEB;
+            --btn-bg: #E2D5E6;
+        }
+
+        body { font-family: Arial, sans-serif; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; background: transparent; user-select: none; }
+
+        #master-setup-btn {
+            background: var(--btn-bg); border: none; padding: 10px 20px;
+            border-radius: 8px; cursor: pointer; font-family: serif; font-style: italic;
+            font-weight: bold; margin-bottom: 15px; width: 100%; max-width: 500px;
+        }
+
+        #media-container {
+            position: relative; width: 100%; max-width: 500px; aspect-ratio: 16 / 9;
+            background: #111; border-radius: 12px; overflow: hidden;
+        }
+
+        #display-img { 
+            width: 100%; height: 100%; object-fit: cover; 
+            position: absolute; top:0; left:0; z-index: 1; 
+            transition: transform 0.2s ease;
+        }
+
+        #time-badge {
+            position: absolute; bottom: 8px; right: 8px;
+            background: rgba(0, 0, 0, 0.8); color: white;
+            padding: 2px 6px; border-radius: 4px; font-size: 11px;
+            font-weight: bold; z-index: 10; cursor: text; outline: none;
+        }
+
+        .input-overlay {
+            position: absolute; inset: 0; background: rgba(255,255,255,0.95);
+            z-index: 100; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+        }
+        
+        .input-group { display: flex; width: 85%; gap: 5px; }
+        .link-input { flex-grow: 1; padding: 12px; border: 2px solid #eee; border-radius: 10px; outline: none; font-size: 14px; }
+
+        .info-section { width: 100%; max-width: 500px; margin-top: 12px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .text-content { flex-grow: 1; }
+        .title-display { font-size: 12pt; font-weight: bold; color: black; margin: 0; cursor: text; line-height: 1.2; outline: none; }
+        .stats-display { font-size: 10pt; color: var(--gray-text); margin-top: 5px; cursor: text; outline: none; }
+        
+        .three-dots { cursor: pointer; color: black; font-size: 20px; padding: 0 5px; font-weight: bold; }
+
+        #zoom-ui { display: none; gap: 10px; margin-top: 10px; }
+        .action-btn { background: white; border: 1px solid #ddd; padding: 8px 15px; border-radius: 8px; cursor: pointer; }
+        .done-btn { background: var(--done-pink); border: none; padding: 10px 25px; border-radius: 25px; cursor: pointer; font-weight: bold; font-family: serif; }
+        
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <script>
+        /* ---------------------------------------------------
+           HARDCORE CONFIG: LOCKED DATA
+           --------------------------------------------------- */
+        const CONFIG = {
+            title: "Back To You",
+            stats: "6.6M views • March 18, 2025",
+            thumb: "https://i.pinimg.com/736x/2a/86/ed/2a86edab59748f6e4aec7010fe6c28c9.jpg",
+            length: "3:37",
+            zoom: 1.0
+        };
+        /* --------------------------------------------------- */
+    </script>
+
+    <button id="master-setup-btn" onclick="openMenu()">𝒑𝒂𝒔𝒕𝒆 𝒕𝒉𝒖𝒎𝒃𝒏𝒂𝒊𝒍</button>
+
+    <div id="media-container">
+        <div id="menu-ui" class="input-overlay">
+            <span style="font-weight: bold; font-family: serif; font-style: italic; font-size: 18px;">𝒍𝒊𝒏𝒌 𝒊𝒎𝒂𝒈𝒆/𝒈𝒊𝒇</span>
+            <div class="input-group">
+                <input type="text" id="img-in" class="link-input" placeholder="Paste link & hit Enter">
+                <button class="action-btn" onclick="processLink()" style="background: #eee;">Set</button>
+            </div>
+            <button class="done-btn" onclick="closeMenu()">𝒅𝒐𝒏𝒆!</button>
+        </div>
+
+        <img id="display-img" src="">
+        <div id="time-badge" contenteditable="true" spellcheck="false">0:00</div>
+    </div>
+
+    <div class="info-section">
+        <div class="text-content">
+            <p id="out-title" class="title-display" contenteditable="true" spellcheck="false"></p>
+            <p id="out-stats" class="stats-display" contenteditable="true" spellcheck="false"></p>
+        </div>
+        <div class="three-dots" onclick="openMenu()">⋮</div>
+    </div>
+
+    <div id="zoom-ui">
+        <button class="action-btn" onclick="adjustZoom(0.1)">Zoom In</button>
+        <button class="action-btn" onclick="adjustZoom(-0.1)">Zoom Out</button>
+        <button class="done-btn" onclick="saveAndHideZoom()">𝒅𝒐𝒏𝒆!</button>
+    </div>
+
+    <script>
+        const elements = {
+            img: document.getElementById('display-img'),
+            title: document.getElementById('out-title'),
+            stats: document.getElementById('out-stats'),
+            time: document.getElementById('time-badge'),
+            setupBtn: document.getElementById('master-setup-btn'),
+            imgInput: document.getElementById('img-in')
+        };
+
+        let currentZoom = CONFIG.zoom;
+
+        window.onload = () => {
+            const savedData = JSON.parse(localStorage.getItem('vlog_save_v6'));
+            const data = savedData || CONFIG;
+
+            elements.img.src = data.thumb;
+            elements.title.innerText = data.title;
+            elements.stats.innerText = data.stats;
+            elements.time.innerText = data.length || data.time;
+            currentZoom = data.zoom;
+            elements.img.style.transform = `scale(${currentZoom})`;
+            
+            if (savedData) elements.setupBtn.classList.add('hidden');
+        };
+
+        function saveAll() {
+            const dataToSave = {
+                thumb: elements.img.src,
+                title: elements.title.innerText,
+                stats: elements.stats.innerText,
+                time: elements.time.innerText,
+                zoom: currentZoom
+            };
+            localStorage.setItem('vlog_save_v6', JSON.stringify(dataToSave));
+        }
+
+        function openMenu() { document.getElementById('menu-ui').style.display = 'flex'; }
+        
+        function closeMenu() { 
+            document.getElementById('menu-ui').style.display = 'none'; 
+            elements.setupBtn.classList.add('hidden');
+            document.getElementById('zoom-ui').style.display = 'flex';
+            saveAll();
+        }
+
+        function saveAndHideZoom() { 
+            document.getElementById('zoom-ui').style.display = 'none'; 
+            saveAll();
+        }
+
+        function adjustZoom(val) {
+            currentZoom += val;
+            elements.img.style.transform = `scale(${currentZoom})`;
+        }
+
+        function processLink() {
+            let url = elements.imgInput.value.trim();
+            if (url) { 
+                elements.img.src = url; 
+                saveAll();
+            }
+            elements.imgInput.value = "";
+        }
+
+        elements.imgInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { processLink(); e.preventDefault(); }
+        });
+
+        [elements.title, elements.stats, elements.time].forEach(el => {
+            el.addEventListener('blur', saveAll);
+            el.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+            });
+        });
+    </script>
+</body>
+</html>
